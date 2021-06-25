@@ -1,0 +1,9 @@
+[submodule ".\\ClosestPointQuery\\lib\\tinyobjloader"]
+	path = .\\ClosestPointQuery\\lib\\tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader.git
+[submodule ".\\ClosestPointQuery\\lib\\RTree"]
+	path = .\\ClosestPointQuery\\lib\\RTree
+	url = https://github.com/nushoin/RTree.git
+[submodule "ClosestPointQuery/lib/glm"]
+	path = ClosestPointQuery/lib/glm
+	url = https://github.com/g-truc/glm.git

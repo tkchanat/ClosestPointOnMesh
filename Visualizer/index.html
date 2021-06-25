@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>My first three.js app</title>
+	<style>
+		body {
+			margin: 0;
+		}
+	</style>
+</head>
+
+<body>
+	<script type="text/javascript">
+		function CSVToArray(strData, strDelimiter) {
+			strDelimiter = (strDelimiter || ",");
+			var objPattern = new RegExp(
+				(
+					"(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+					"(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+					"([^\"\\" + strDelimiter + "\\r\\n]*))"
+				),
+				"gi"
+			);
+			var arrData = [[]];
+			var arrMatches = null;
+			while (arrMatches = objPattern.exec(strData)) {
+				var strMatchedDelimiter = arrMatches[1];
+				if (
+					strMatchedDelimiter.length &&
+					strMatchedDelimiter !== strDelimiter
+				) {
+					arrData.push([]);
+				}
+				var strMatchedValue;
+				if (arrMatches[2]) {
+					strMatchedValue = arrMatches[2].replace(
+						new RegExp("\"\"", "g"),
+						"\""
+					);
+				} else {
+					strMatchedValue = arrMatches[3];
+				}
+				arrData[arrData.length - 1].push(strMatchedValue);
+			}
+			return (arrData);
+		}
+	</script>
+	<script type="module">
+		// Find the latest version by visiting https://cdn.skypack.dev/three.
+		import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
+		import { OBJLoader } from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/jsm/loaders/OBJLoader.js';
+		import { OrbitControls } from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/jsm/controls/OrbitControls.js';
+
+		const renderer = new THREE.WebGLRenderer();
+		renderer.setClearColor(new THREE.Color(0xffffff), 1);
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.zoomSpeed = 0.5;
+
+		const size = 10;
+		const divisions = 10;
+		const gridHelper = new THREE.GridHelper(size, divisions);
+		scene.add(gridHelper);
+
+		const light = new THREE.AmbientLight(0x404040); // soft white light
+		scene.add(light);
+
+		const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+		scene.add(directionalLight);
+
+		const loader = new OBJLoader();
+		loader.load(
+			'../Assets/bunny.obj',
+			function (object) {
+				// Add the model itself
+				object.traverse(function (child) {
+					if (child.isMesh) {
+						child.material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+						// Highlight the wireframe
+						const wireframe = new THREE.WireframeGeometry(child.geometry);
+						const line = new THREE.LineSegments(wireframe);
+						line.material.color = new THREE.Color(0x000000);
+						scene.add(line);
+					}
+				});
+				scene.add(object);
+				// Set the optimal position for the camera
+				var bbox = new THREE.Box3().setFromObject(object);
+				camera.position.set(bbox.max.x * 2, bbox.max.y * 2, bbox.max.z * 2);
+			},
+			function (xhr) {
+				console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+			},
+			function (error) {
+				console.log('An error happened');
+			}
+		);
+
+		fetch('query_points.csv')
+			.then(response => response.text())
+			.then(data => {
+				const query_points = CSVToArray(data);
+				const valid_count = query_points.filter(x => x[4] == 1).length;
+				const invalid_count = query_points.length - valid_count - 1;
+				const matrix = new THREE.Matrix4();
+
+				const arrow_geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)]);
+				const arrow_mat = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+				const arrow_mesh = new THREE.InstancedMesh(arrow_geo, arrow_mat, valid_count);
+
+				const point_geo = new THREE.IcosahedronGeometry(0.01, 1);
+				const valid_mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+				const valid_mesh = new THREE.InstancedMesh(point_geo, valid_mat, valid_count);
+				const invalid_mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.25 });
+				const invalid_mesh = new THREE.InstancedMesh(point_geo, invalid_mat, invalid_count);
+				const quaternion = new THREE.Quaternion();
+				const scale = new THREE.Vector3(1, 1, 1);
+
+				var valid_filled_count = 0;
+				var invalid_filled_count = 0;
+				query_points.forEach((row, i) => {
+					if (row.length != 8) return;
+					const query_point_radius = row[0];
+					const query_point_position = new THREE.Vector3(row[1], row[2], row[3]);
+					const closest_point_found = row[4] == 1;
+					const closest_point_position = new THREE.Vector3(row[5], row[6], row[7]);
+
+					// Query point
+					if (closest_point_found) {
+						matrix.compose(closest_point_position, quaternion, scale);
+						valid_mesh.setMatrixAt(valid_filled_count, matrix);
+					} else {
+						matrix.compose(query_point_position, quaternion, scale);
+						invalid_mesh.setMatrixAt(invalid_filled_count, matrix);
+					}
+
+					// // Closest point
+					// const dir = new THREE.Vector3();
+					// dir.subVectors(closest_point_position, query_point_position).normalize();
+					// const length = query_point_position.distanceTo(closest_point_position);
+					// matrix.lookAt(query_point_position, closest_point_position, new THREE.Vector3(0, 0, 1));
+					// quaternion.setFromRotationMatrix(matrix);
+					// matrix.compose(query_point_position, quaternion, new THREE.Vector3(length, length, length));
+					// arrow_mesh.setMatrixAt(valid_filled_count, matrix);
+
+					valid_filled_count++;
+					invalid_filled_count++;
+				});
+				scene.add(valid_mesh);
+				scene.add(invalid_mesh);
+				scene.add(arrow_mesh);
+			});
+
+		controls.update();
+
+		const animate = function () {
+			requestAnimationFrame(animate);
+
+			// required if controls.enableDamping or controls.autoRotate are set to true
+			controls.update();
+
+			renderer.render(scene, camera);
+		};
+
+		animate();
+	</script>
+</body>
+
+</html>
