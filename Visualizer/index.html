@@ -73,41 +73,47 @@
 		const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 		scene.add(directionalLight);
 
-		const loader = new OBJLoader();
-		loader.load(
-			'../Assets/bunny.obj',
-			function (object) {
-				// Add the model itself
-				object.traverse(function (child) {
-					if (child.isMesh) {
-						child.material = new THREE.MeshLambertMaterial({ color: 0xffffff });
-						// Highlight the wireframe
-						const wireframe = new THREE.WireframeGeometry(child.geometry);
-						const line = new THREE.LineSegments(wireframe);
-						line.material.color = new THREE.Color(0x000000);
-						scene.add(line);
-					}
-				});
-				scene.add(object);
-				// Set the optimal position for the camera
-				var bbox = new THREE.Box3().setFromObject(object);
-				camera.position.set(bbox.max.x * 2, bbox.max.y * 2, bbox.max.z * 2);
-			},
-			function (xhr) {
-				console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-			},
-			function (error) {
-				console.log('An error happened');
-			}
-		);
-
 		fetch('query_points.csv')
 			.then(response => response.text())
 			.then(data => {
-				const query_points = CSVToArray(data);
+				// Determine which model file to open
+				const first_line_end = data.indexOf('\n');
+				const model_path = data.substring(0, first_line_end);
+				const loader = new OBJLoader();
+				loader.load(
+					`../${model_path}`,
+					function (object) {
+						// Add the model itself
+						object.traverse(function (child) {
+							if (child.isMesh) {
+								child.material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+								// Highlight the wireframe
+								const wireframe = new THREE.WireframeGeometry(child.geometry);
+								const line = new THREE.LineSegments(wireframe);
+								line.material.color = new THREE.Color(0x000000);
+								scene.add(line);
+							}
+						});
+						scene.add(object);
+						// Set the optimal position for the camera
+						var bbox = new THREE.Box3().setFromObject(object);
+						camera.position.set(0, bbox.max.y, bbox.max.z * 5);
+					},
+					function (xhr) {
+						// console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+					},
+					function (error) {
+						console.log('An error happened');
+					}
+				);
+
+				// Add query points and results to the scene
+				const query_points = CSVToArray(data.substring(first_line_end));
 				const valid_count = query_points.filter(x => x[4] == 1).length;
 				const invalid_count = query_points.length - valid_count - 1;
 				const matrix = new THREE.Matrix4();
+				console.log(`Valid Cout: ${valid_count}`);
+				console.log(`Invalid Cout: ${invalid_count}`);
 
 				const arrow_geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)]);
 				const arrow_mat = new THREE.LineBasicMaterial({ color: 0x00ff00 });
