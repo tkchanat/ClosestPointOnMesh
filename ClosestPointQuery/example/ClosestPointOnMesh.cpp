@@ -19,7 +19,7 @@
 using namespace geoutils;
 
 // Constants declarations
-const char* MODEL_PATH = "../../../Assets/head.obj";
+const char* MODEL_PATH = "../../../Assets/bunny.obj";
 const char* VISUALIZER_CSV_PATH = "../../../Visualizer/query_points.csv";
 
 // Forward declarations
