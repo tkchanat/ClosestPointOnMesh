@@ -1,6 +1,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #define ENABLE_MULTITHREADING
-#define MAX_THREAD_COUNT 64
+#define ASYNC_TASK_COUNT 256
+#define QUERY_POINT_COUNT 100000
 #define VISUALIZER_OUTPUT
 //#ifdef DEBUG
 #define PRINT_TIME(msg, t) std::cout << msg << " took " << t << " ms\n";
@@ -41,18 +42,22 @@ struct Timer {
 
 int main(void) {
 	std::vector<Mesh> meshes;
-	// Load model from file
-	try {
-		meshes = load_obj_model(MODEL_PATH);
-	}
-	catch (std::exception e) {
-		std::cerr << e.what();
-		return -1;
+	{
+		Timer load_obj_timer;
+		// Load model from file
+		try {
+			meshes = load_obj_model(MODEL_PATH);
+		}
+		catch (std::exception e) {
+			std::cerr << e.what();
+			return -1;
+		}
+		PRINT_TIME("Loading model", load_obj_timer.elapsed_ms());
 	}
 
 	// Generate random query points around the model
-	std::vector<std::pair<float, Point>> query_points;
-	for (size_t i = 0; i < 100000; ++i) query_points.push_back({ 0.5f, 1.5f * random_in_unit_sphere() });
+	std::vector<std::pair<float, Point>> query_points(QUERY_POINT_COUNT);
+	for (size_t i = 0; i < QUERY_POINT_COUNT; ++i) query_points[i] = { 0.5f, 1.5f * random_in_unit_sphere() };
 
 	// Start the query!
 	std::vector<std::pair<bool, Point>> closest_points(query_points.size());
@@ -61,19 +66,20 @@ int main(void) {
 		for (const Mesh& mesh : meshes) {
 			ClosestPointQuery query(mesh);
 			PRINT_TIME("Construct ClosestPointQuery", elapsed_timer.elapsed_ms());
-			size_t thread_count = MAX_THREAD_COUNT;
-			for (size_t i = 0; i < query_points.size(); i += MAX_THREAD_COUNT) {
+			size_t async_task_count = ASYNC_TASK_COUNT;
+			for (size_t i = 0; i < query_points.size(); i += ASYNC_TASK_COUNT) {
 #ifdef ENABLE_MULTITHREADING
-				std::vector<std::future<bool>> threads;
-				thread_count = std::min((size_t)MAX_THREAD_COUNT, query_points.size() - i);
-				for (size_t j = 0; j < MAX_THREAD_COUNT; ++j) {
-					threads.push_back(std::async(&ClosestPointQuery::operator(), &query,
+				async_task_count = std::min((size_t)ASYNC_TASK_COUNT, query_points.size() - i);
+				std::vector<std::future<bool>> threads(async_task_count);
+				for (size_t j = 0; j < async_task_count; ++j) {
+					threads[j] = std::async(std::launch::async,
+						&ClosestPointQuery::operator(), &query,
 						query_points[i + j].second,				// Query point position
 						query_points[i + j].first, 				// Maximum query distance
 						std::ref(closest_points[i + j].second)  // Output closest point
-					));
+					);
 				}
-				for (size_t j = 0; j < MAX_THREAD_COUNT; ++j) {
+				for (size_t j = 0; j < async_task_count; ++j) {
 					closest_points[i + j].first = threads[j].get();
 				}
 #else
