@@ -31,7 +31,6 @@ project "ClosestPointQuery"
    includedirs { 
       "ClosestPointQuery/include",
       "ClosestPointQuery/lib/glm",
-      "ClosestPointQuery/lib/RTree"
    }
 
 project "Example"
@@ -45,7 +44,6 @@ project "Example"
       "ClosestPointQuery/include",
       "ClosestPointQuery/lib/glm",
       "ClosestPointQuery/lib/tinyobjloader",
-      "ClosestPointQuery/lib/RTree",
    }
    
 project "UnitTest"
@@ -65,6 +63,5 @@ project "UnitTest"
       "ClosestPointQuery/include",
       "ClosestPointQuery/lib/glm",
       "ClosestPointQuery/lib/tinyobjloader",
-      "ClosestPointQuery/lib/RTree",
       "ClosestPointQuery/lib/googletest/include"
    }

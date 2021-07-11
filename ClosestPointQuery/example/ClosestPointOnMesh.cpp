@@ -2,9 +2,10 @@
 #define ENABLE_MULTITHREADING
 #define ASYNC_TASK_COUNT 256
 #define QUERY_POINT_COUNT 100000
-#define VISUALIZER_OUTPUT
+#define VISUALIZER_QUERY_POINTS
+#define VISUALIZER_BOUNDING_BOXES
 //#ifdef DEBUG
-#define PRINT_TIME(msg, t) std::cout << msg << " took " << t << " ms\n";
+#define PRINT_TIME(msg, t) std::cout << msg << " (Time: " << t << "ms)\n";
 //#else
 //#define PRINT_TIME(msg, t)
 //#endif
@@ -36,8 +37,15 @@ std::vector<Mesh> load_obj_model(const char* model_path);
 //	std::cout << "Time elapsed: " << timer.elapsed_ms() << "ms";
 struct Timer {
 	std::chrono::steady_clock::time_point start;
-	Timer() : start(std::chrono::high_resolution_clock::now()) {}
+	std::chrono::steady_clock::time_point last_requested_time;
+	Timer() : start{ std::chrono::high_resolution_clock::now() }, last_requested_time{ start } {}
 	double elapsed_ms() const { return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() / 1000.0; }
+	double delta_ms() {
+		const auto now = std::chrono::high_resolution_clock::now();
+		const double delta_time = std::chrono::duration_cast<std::chrono::microseconds>(now - last_requested_time).count() / 1000.0;
+		last_requested_time = now;
+		return delta_time;
+	}
 };
 
 int main(void) {
@@ -65,7 +73,7 @@ int main(void) {
 		Timer elapsed_timer;
 		for (const Mesh& mesh : meshes) {
 			ClosestPointQuery query(mesh);
-			PRINT_TIME("Construct ClosestPointQuery", elapsed_timer.elapsed_ms());
+			PRINT_TIME("Construct ClosestPointQuery", elapsed_timer.delta_ms());
 			size_t async_task_count = ASYNC_TASK_COUNT;
 			for (size_t i = 0; i < query_points.size(); i += ASYNC_TASK_COUNT) {
 #ifdef ENABLE_MULTITHREADING
@@ -90,11 +98,12 @@ int main(void) {
 				);
 #endif
 			}
-			PRINT_TIME("Querying " + std::to_string(query_points.size()) + " points on " + std::to_string(mesh.indices.size() / 3) + " triangles", elapsed_timer.elapsed_ms());
+			PRINT_TIME("Querying " + std::to_string(query_points.size()) + " points on " + std::to_string(mesh.indices.size() / 3) + " triangles", elapsed_timer.delta_ms());
 		}
 	}
 
-#ifdef VISUALIZER_OUTPUT
+#ifdef VISUALIZER_QUERY_POINTS
+	#define VISUALIZER_BOUNDING_BOXES
 	// Output the results to a CSV file.
 	std::ofstream query_points_csv(VISUALIZER_CSV_PATH, std::ofstream::trunc);
 	if (query_points_csv.is_open()) {

@@ -9,17 +9,26 @@
 - [Visualizer](#visualizer-art)
 - [Development Log](#development-log-card_file_box)
 - [Methodology](#methodology-scroll)
-- [Assumption](#assumption-bangbang)
+- [Assumptions](#assumptions-bangbang)
 - [Possible Improvement](#possible-improvement-bulb)
 - [Dependencies](#dependencies-books)
 
 ## Benchmarks :bar_chart:
 Running on an Intel(R) Core(TM) i5-9400F, release build, multi-threaded. All query points are generated randomly within a 1.5x unit sphere and 0.5 maximum query distance. 
-| Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time      |
-| :------------ | :-------- | :----------- | :-------------------- | :------------------ |
-| bunny.obj     | 5,002     | 100,000      | ~~0.008~~ 0.007s      | ~~0.765~~   0.451s  |
-| armadillo.obj | 212,574   | 100,000      | ~~0.508~~ 0.396s      | ~~24.748~~  17.183s |
-| head.obj      | 1,131,776 | 100,000      | ~~2.791~~ 2.282s      | ~~120.841~~ 86.719s |
+
+**Using [nushoin/RTree](https://github.com/nushoin/RTree)**
+| Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time |
+| :------------ | :-------- | :----------- | :-------------------- | :------------- |
+| bunny.obj     | 5,002     | 100,000      | 0.007s                | 0.451s         |
+| armadillo.obj | 212,574   | 100,000      | 0.396s                | 17.183s        |
+| head.obj      | 1,131,776 | 100,000      | 2.282s                | 86.719s        |
+
+**Using own implementation of the R\*-tree**
+| Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time |
+| :------------ | :-------- | :----------- | :-------------------- | :------------- |
+| bunny.obj     | 5,002     | 100,000      | 0.007s                | 0.412s         |
+| armadillo.obj | 212,574   | 100,000      | 4.437s                | 15.678s        |
+| head.obj      | 1,131,776 | 100,000      | 17.426s               | 65.440s        |
 
 Models downloaded from Morgan McGuire's [Computer Graphics Archive](https://casual-effects.com/data)
 
@@ -57,11 +66,14 @@ python -m http.server
   - Writing unit tests using GoogleTest. 
 - 2021-6-27
   - Finalize solution structure, made an example project for benchmarking.
-  - Conclude findings and documentations.
+  - Conclude initial findings and documentations.
 - 2021-7-3
   - Potential bugs fixed, revised some namings.
   - Added two more test cases when no closest point is found.
-  - Tweaked R-Tree node and async task size, constructing R-Tree took longer but the average query time is **~30%** faster than before!
+  - Tweaked R-Tree node and async task size.
+- 2021-7-11
+  - Implemented R*-tree as the acceleration structure, trading better query performance with a longer tree construction time.
+  - Removed [nushoin/RTree](https://github.com/nushoin/RTree) library.
 
 ## Methodology :scroll:
 Finding the closest point on a given mesh is equivalent to breaking down the subproblem of finding the closest points to every single triangles. We have to manifest an efficient spatial structure for getting region of interest (ROI). I used an R-Tree approach to store triangles in a mesh. After searching for possible candidates within the search distance, iterate through all candidates and find the closest point from the query point to the triangle. 
@@ -79,15 +91,15 @@ To find the closest point to a triangle, for each triangle:
 8. Or else, the projected point is already within the triangle itself. It's already the closest point on the triangle.
 9. Repeat the above steps until all candidates are compared with the best closest point. 
 
-## Assumption :bangbang:
+## Assumptions :bangbang:
 - All faces must be triangulated.
+- Triangles in a mesh are static, meaning the mesh won't be modified during runtime.
 - Currently only support querying multiple points on a single mesh.
 
 ## Possible Improvement :bulb:
-- To enable query on multiple meshes, we can use k-d tree to eliminate objects in a large scale.
-- Using R-Tree query restricted us from using axis-aligned box for searching triangles. This means we will have large gaps between the bounding box and the query sphere. Thus this will include triangles that aren't even close to the searching distance. 
+- The current R*-tree implementation still exhibit overlaps among bounding boxes. Perhaps a better partitioning method can be adopted.
+- To enable query on multiple meshes, we can use other BVH to eliminate objects in a larger scale.
 - Use/develop a better SIMD mathematics library that supports platform/hardware acceleration.
-- Make an allocator and allocate a continuous memory for `Triangle` when constructing the R-Tree. Not only for avoiding memory segmentation, but also gaining performance from cahce localization.
 - `std::function` was used in the R-Tree library and it's notorious for performance trade off. I'd suggest rewrite one with function pointers.
 - Implement the 2D method for calculating distance from a point to a triangle suggested by [this paper](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.104.4264&rep=rep1&type=pdf) by Mark W. Jones. By pre-computing matrices to transform triangles to align with axes and origin rather than performing vector maths. This method claiming to be 3-4 times faster than the 3D approach.
 
@@ -95,6 +107,5 @@ To find the closest point to a triangle, for each triangle:
 - [premake5](https://github.com/premake/premake-core) - for solution/project generation
 - [glm](https://github.com/g-truc/glm) - for linear algebra calculation
 - [googletest](https://github.com/google/googletest) - [prebuilt binary] for unit testing
-- [RTree](https://github.com/nushoin/RTree) - for spatial query acceleration purpose
 - [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) - for loading OBJ file
 - [three.js](https://github.com/mrdoob/three.js/) - for visualizing the results

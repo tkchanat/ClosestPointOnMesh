@@ -15,14 +15,7 @@
 	<script type="text/javascript">
 		function CSVToArray(strData, strDelimiter) {
 			strDelimiter = (strDelimiter || ",");
-			var objPattern = new RegExp(
-				(
-					"(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
-					"(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
-					"([^\"\\" + strDelimiter + "\\r\\n]*))"
-				),
-				"gi"
-			);
+			var objPattern = new RegExp(("(\\" + strDelimiter + "|\\r?\\n|\\r|^)" + "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" + "([^\"\\" + strDelimiter + "\\r\\n]*))"), "gi");
 			var arrData = [[]];
 			var arrMatches = null;
 			while (arrMatches = objPattern.exec(strData)) {
@@ -60,6 +53,7 @@
 		const scene = new THREE.Scene();
 		const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
 		const controls = new OrbitControls(camera, renderer.domElement);
+		camera.position.set(5, 5, 5);
 		controls.zoomSpeed = 0.5;
 
 		const size = 10;
@@ -73,39 +67,72 @@
 		const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 		scene.add(directionalLight);
 
-		fetch('query_points.csv')
+		const loadModel = function (model_path) {
+			const loader = new OBJLoader();
+			loader.load(
+				`../${model_path}`,
+				function (object) {
+					// Add the model itself
+					object.traverse(function (child) {
+						if (child.isMesh) {
+							child.material = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
+							// Highlight the wireframe
+							const wireframe = new THREE.WireframeGeometry(child.geometry);
+							const line = new THREE.LineSegments(wireframe);
+							line.material.color = new THREE.Color(0x000000);
+							scene.add(line);
+						}
+					});
+					scene.add(object);
+					// Set the optimal position for the camera
+					var bbox = new THREE.Box3().setFromObject(object);
+					camera.position.set(0, bbox.max.y, bbox.max.z * 5);
+				},
+				function (xhr) {
+					// console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+				},
+				function (error) {
+					console.log('An error happened');
+				}
+			);
+		};
+
+		fetch('bounding_boxes.csv')
 			.then(response => response.text())
 			.then(data => {
+				// return;
 				// Determine which model file to open
 				const first_line_end = data.indexOf('\n');
 				const model_path = data.substring(0, first_line_end);
-				const loader = new OBJLoader();
-				loader.load(
-					`../${model_path}`,
-					function (object) {
-						// Add the model itself
-						object.traverse(function (child) {
-							if (child.isMesh) {
-								child.material = new THREE.MeshLambertMaterial({ color: 0xffffff });
-								// Highlight the wireframe
-								const wireframe = new THREE.WireframeGeometry(child.geometry);
-								const line = new THREE.LineSegments(wireframe);
-								line.material.color = new THREE.Color(0x000000);
-								scene.add(line);
-							}
-						});
-						scene.add(object);
-						// Set the optimal position for the camera
-						var bbox = new THREE.Box3().setFromObject(object);
-						camera.position.set(0, bbox.max.y, bbox.max.z * 5);
-					},
-					function (xhr) {
-						// console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-					},
-					function (error) {
-						console.log('An error happened');
-					}
-				);
+				loadModel(model_path);
+
+				const boxes = CSVToArray(data);
+				boxes.forEach((row, i) => {
+					if (row.length != 7) return;
+					const layer = parseInt(row[0]);
+					// if (layer > 0) return;
+					const min = new THREE.Vector3(parseFloat(row[1]), parseFloat(row[2]), parseFloat(row[3]));
+					const max = new THREE.Vector3(parseFloat(row[4]), parseFloat(row[5]), parseFloat(row[6]));
+					const box = new THREE.Box3(min, max);
+					const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+					scene.add(new THREE.Box3Helper(box, colors[Math.min(layer, colors.length - 1)]));
+				});
+
+				// const point_geo = new THREE.SphereGeometry(1.5, 16, 16);
+				// const point_mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
+				// const sphere = new THREE.Mesh(point_geo, point_mat);
+				// sphere.position.set(1, 1, 1);
+				// scene.add(sphere);
+			});
+
+		fetch('query_points.csv')
+			.then(response => response.text())
+			.then(data => {
+				return;
+				// Determine which model file to open
+				const first_line_end = data.indexOf('\n');
+				const model_path = data.substring(0, first_line_end);
+				loadModel(model_path);
 
 				// Add query points and results to the scene
 				const query_points = CSVToArray(data.substring(first_line_end));

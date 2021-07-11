@@ -1,33 +1,21 @@
 #include "ClosestPointQuery.h"
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/norm.hpp>
 #include <glm/gtx/normal.hpp>
-#include <chrono>
 
 namespace geoutils {
 
 	ClosestPointQuery::ClosestPointQuery(const Mesh& m) {
 		// Construct the R-Tree
+		const size_t triangle_count = m.indices.size() / 3;
+		triangles.reserve(triangle_count);
 		for (size_t i = 0; i < m.indices.size(); i += 3) {
 			const auto& p1 = m.vertices[m.indices[i + 0]];
 			const auto& p2 = m.vertices[m.indices[i + 1]];
 			const auto& p3 = m.vertices[m.indices[i + 2]];
-			Triangle* tri = new Triangle(p1, p2, p3);
-			Vec3 min = glm::min(glm::min(p1, p2), p3);
-			Vec3 max = glm::max(glm::max(p1, p2), p3);
-			triangles_r_tree.Insert(glm::value_ptr(min), glm::value_ptr(max), tri);
-		}
-	}
-
-	ClosestPointQuery::~ClosestPointQuery() {
-		// Release memory
-		int itIndex = 0;
-		TriangleRTree::Iterator it;
-		triangles_r_tree.GetFirst(it);
-		while (!it.IsNull()) {
-			Triangle* tri = *it;
-			++it;
-			delete tri;
+			triangles.emplace_back(p1, p2, p3);
+			const Vec3 min = glm::min(glm::min(p1, p2), p3);
+			const Vec3 max = glm::max(glm::max(p1, p2), p3);
+			r_star_tree.insert(min, max, &triangles.back());
 		}
 	}
 
@@ -38,7 +26,6 @@ namespace geoutils {
 		const Point search_max(query_point + Vec3(max_dist));
 		const auto search_callback = [&](Triangle* tri) -> bool {
 			uint8_t outside_count = 0;
-
 			// Determine the triangle normal and projected point.
 			const auto& vert = tri->vertices;
 			const Vec3 normal = glm::normalize(glm::cross(vert[1] - vert[0], vert[2] - vert[0]));
@@ -82,9 +69,9 @@ namespace geoutils {
 		// Query the R-Tree around the bounding box which we defined eariler.
 		// For each overlapping triangles, find the closest point from the query point to the triangle.
 		// A detailed explanation can be found in README.md.
-		triangles_r_tree.Search(
-			glm::value_ptr(search_min),
-			glm::value_ptr(search_max),
+		r_star_tree.search_radius(
+			query_point,
+			max_dist,
 			search_callback
 		);
 
