@@ -100,7 +100,7 @@
 		fetch('bounding_boxes.csv')
 			.then(response => response.text())
 			.then(data => {
-				// return;
+				return;
 				// Determine which model file to open
 				const first_line_end = data.indexOf('\n');
 				const model_path = data.substring(0, first_line_end);
@@ -128,7 +128,7 @@
 		fetch('query_points.csv')
 			.then(response => response.text())
 			.then(data => {
-				return;
+				// return;
 				// Determine which model file to open
 				const first_line_end = data.indexOf('\n');
 				const model_path = data.substring(0, first_line_end);

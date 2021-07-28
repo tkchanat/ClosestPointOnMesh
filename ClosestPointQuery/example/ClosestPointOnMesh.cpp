@@ -9,19 +9,19 @@
 //#else
 //#define PRINT_TIME(msg, t)
 //#endif
+
 #include <iostream>
 #include <fstream>
 #include <future>
 #include <random>
 #include <thread>
 #include <tiny_obj_loader.h>
-#include <glm/gtx/string_cast.hpp>
-#include <glm/gtx/norm.hpp>
 #include <ClosestPointQuery.h>
+
 using namespace geoutils;
 
 // Constants declarations
-const char* MODEL_PATH = "../../../Assets/bunny.obj";
+const char* MODEL_PATH = "../../../Assets/head.obj";
 const char* VISUALIZER_CSV_PATH = "../../../Visualizer/query_points.csv";
 
 // Forward declarations
@@ -35,9 +35,11 @@ std::vector<Mesh> load_obj_model(const char* model_path);
 //	Timer timer;
 //	complex_function_call();
 //	std::cout << "Time elapsed: " << timer.elapsed_ms() << "ms";
-struct Timer {
+class Timer {
+private:
 	std::chrono::steady_clock::time_point start;
 	std::chrono::steady_clock::time_point last_requested_time;
+public:
 	Timer() : start{ std::chrono::high_resolution_clock::now() }, last_requested_time{ start } {}
 	double elapsed_ms() const { return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() / 1000.0; }
 	double delta_ms() {
@@ -65,7 +67,7 @@ int main(void) {
 
 	// Generate random query points around the model
 	std::vector<std::pair<float, Point>> query_points(QUERY_POINT_COUNT);
-	for (size_t i = 0; i < QUERY_POINT_COUNT; ++i) query_points[i] = { 0.5f, 1.5f * random_in_unit_sphere() };
+	for (size_t i = 0; i < QUERY_POINT_COUNT; ++i) query_points[i] = { 0.5f, random_in_unit_sphere() * 1.5f };
 
 	// Start the query!
 	std::vector<std::pair<bool, Point>> closest_points(query_points.size());
@@ -109,8 +111,8 @@ int main(void) {
 	if (query_points_csv.is_open()) {
 		query_points_csv << MODEL_PATH << "\n";
 		for (size_t i = 0; i < query_points.size(); ++i) {
-			query_points_csv << query_points[i].first << "," << query_points[i].second.x << "," << query_points[i].second.y << "," << query_points[i].second.z << ",";
-			query_points_csv << closest_points[i].first << "," << closest_points[i].second.x << "," << closest_points[i].second.y << "," << closest_points[i].second.z << "\n";
+			query_points_csv << query_points[i].first << "," << query_points[i].second.x() << "," << query_points[i].second.y() << "," << query_points[i].second.z() << ",";
+			query_points_csv << closest_points[i].first << "," << closest_points[i].second.x() << "," << closest_points[i].second.y() << "," << closest_points[i].second.z() << "\n";
 		}
 		query_points_csv.close();
 	}
@@ -151,7 +153,7 @@ inline double random_double(double min, double max) {
 Vec3 random_in_unit_sphere() {
 	while (true) {
 		Vec3 p = Vec3(random_double(-1, 1), random_double(-1, 1), random_double(-1, 1));
-		if (glm::length2(p) >= 1) continue;
+		if (p.length2() >= 1.f) continue;
 		return p;
 	}
 }

@@ -16,6 +16,8 @@
 ## Benchmarks :bar_chart:
 Running on an Intel(R) Core(TM) i5-9400F, release build, multi-threaded. All query points are generated randomly within a 1.5x unit sphere and 0.5 maximum query distance. 
 
+Models downloaded from Morgan McGuire's [Computer Graphics Archive](https://casual-effects.com/data)
+
 **Using [nushoin/RTree](https://github.com/nushoin/RTree)**
 | Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time |
 | :------------ | :-------- | :----------- | :-------------------- | :------------- |
@@ -24,13 +26,13 @@ Running on an Intel(R) Core(TM) i5-9400F, release build, multi-threaded. All que
 | head.obj      | 1,131,776 | 100,000      | 2.282s                | 86.719s        |
 
 **Using own implementation of the R\*-tree**
-| Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time |
-| :------------ | :-------- | :----------- | :-------------------- | :------------- |
-| bunny.obj     | 5,002     | 100,000      | 0.007s                | 0.412s         |
-| armadillo.obj | 212,574   | 100,000      | 4.437s                | 15.678s        |
-| head.obj      | 1,131,776 | 100,000      | 17.426s               | 65.440s        |
+| Model Name    | Triangles | Query Points | R-Tree Construct Time | Execution Time      |
+| :------------ | :-------- | :----------- | :-------------------- | :------------------ |
+| bunny.obj     | 5,002     | 100,000      | 0.076s  / 0.075s*    | 0.412s / 0.395s*   |
+| armadillo.obj | 212,574   | 100,000      | 4.437s  / 4.189s*    | 15.678s / 14.966s* |
+| head.obj      | 1,131,776 | 100,000      | 17.426s / 16.262s*   | 65.440s / 64.101s* |
 
-Models downloaded from Morgan McGuire's [Computer Graphics Archive](https://casual-effects.com/data)
+\* Using own SIMD implementation of `Vec3`
 
 ## Build Project :hammer:
 This project uses third-party libraries as git submodules. Make sure to update and init them:

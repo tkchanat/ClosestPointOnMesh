@@ -1,6 +1,4 @@
 #include "ClosestPointQuery.h"
-#include <glm/gtx/norm.hpp>
-#include <glm/gtx/normal.hpp>
 
 namespace geoutils {
 
@@ -13,8 +11,8 @@ namespace geoutils {
 			const auto& p2 = m.vertices[m.indices[i + 1]];
 			const auto& p3 = m.vertices[m.indices[i + 2]];
 			triangles.emplace_back(p1, p2, p3);
-			const Vec3 min = glm::min(glm::min(p1, p2), p3);
-			const Vec3 max = glm::max(glm::max(p1, p2), p3);
+			const Vec3 min = p1.min(p2).min(p3);
+			const Vec3 max = p1.max(p2).max(p3);
 			r_star_tree.insert(min, max, &triangles.back());
 		}
 	}
@@ -28,9 +26,9 @@ namespace geoutils {
 			uint8_t outside_count = 0;
 			// Determine the triangle normal and projected point.
 			const auto& vert = tri->vertices;
-			const Vec3 normal = glm::normalize(glm::cross(vert[1] - vert[0], vert[2] - vert[0]));
-			const Vec3 projection = glm::dot(vert[0] - query_point, normal) * normal;
-			const double distance_to_plane = glm::length2(projection);
+			const Vec3 normal = (vert[1] - vert[0]).cross(vert[2] - vert[0]).normalize();
+			const Vec3 projection = normal * (vert[0] - query_point).dot(normal);
+			const double distance_to_plane = projection.length2();
 
 			// Early termination. (distance_to_plane is already the shortest possible distance to the triangle, there's no reason to proceed)
 			if (distance_to_plane > shortest_distance) return true;
@@ -41,13 +39,13 @@ namespace geoutils {
 				const Point& v2 = vert[(i + 1) % 3];
 
 				// Utilize the winding order to determine if the point lies outside of an edge.
-				const bool outside = glm::dot(glm::cross(v1 - projected, v2 - projected), normal) < 0.f;
+				const bool outside = (v1 - projected).cross(v2 - projected).dot(normal) < 0.f;
 				if (outside) {
 					outside_count++;
 					// Clamp the projection value to be in-between of the two ends of the edge.
-					const float t = glm::clamp(glm::dot(v2 - v1, projected - v1) / glm::distance2(v1, v2), 0.f, 1.f);
+					const float t = std::min(std::max((v2 - v1).dot(projected - v1) / v1.distance2(v2), 0.f), 1.f);
 					const Point closest_point_on_edge = v1 * (1.f - t) + v2 * t;
-					const double distance_to_edge = glm::distance2(query_point, closest_point_on_edge);
+					const double distance_to_edge = query_point.distance2(closest_point_on_edge);
 					if (distance_to_edge < shortest_distance) {
 						closest_point = closest_point_on_edge;
 						shortest_distance = distance_to_edge;

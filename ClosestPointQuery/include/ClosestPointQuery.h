@@ -1,14 +1,7 @@
 #pragma once
-#define GLM_FORCE_INLINE 
-#define GLM_FORCE_INTRINSICS
-#include <vector>
-#include <glm/glm.hpp>
 #include "RStarTree.h"
 
 namespace geoutils {
-
-	typedef glm::vec3 Point;
-	typedef glm::vec3 Vec3;
 
 	// Define a mesh by a collection of vertices and indices
 	struct Mesh {

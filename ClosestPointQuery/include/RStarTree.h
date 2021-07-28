@@ -1,15 +1,12 @@
 #pragma once
-#define GLM_FORCE_INLINE 
-#define GLM_FORCE_INTRINSICS
 #include <vector>
 #include <algorithm>
-#include <glm/glm.hpp>
-#include <glm/gtx/norm.hpp>
-
-typedef glm::vec3 Point;
-typedef glm::vec3 Vec3;
+#include "Vec3.h"
+#include "assert.h"
 
 namespace geoutils {
+	using Point = math::Vec3;
+	using Vec3 = math::Vec3;
 
 	// A 3D bounding box definition with standard geometric operations.
 	struct BoundingBox {
@@ -25,25 +22,27 @@ namespace geoutils {
 			max = other.max;
 			return *this;
 		}
-		bool operator==(const BoundingBox& other) const { return min == other.min && max == other.max; }
 		~BoundingBox() = default;
+		bool operator==(const BoundingBox& other) const { return min == other.min && max == other.max; }
 		void reset() { min = Point(FLT_MAX); max = Point(-FLT_MAX); }
-		void enlarge(const BoundingBox& other) { min = glm::min(min, other.min); max = glm::max(max, other.max); }
-		const BoundingBox enlarged(const BoundingBox& other) const { return BoundingBox{ glm::min(min, other.min), glm::max(max, other.max) }; }
-		bool is_overlapping(const BoundingBox& other) const { return (min.x < other.max.x&& max.x > other.min.x) && (min.y < other.max.y&& max.y > other.min.y) && (min.z < other.max.z&& max.z > other.min.z); }
-		bool is_inside(const BoundingBox& other) const { return glm::min(min, other.min) == other.min && glm::max(max, other.max) == other.max; }
-		bool is_enclosing(const BoundingBox& other) const { return glm::min(min, other.min) == min && glm::max(max, other.max) == max; }
-		float area() const { const Vec3 edges = max - min; return edges.x * edges.y * edges.z; }
-		float margin() const { const Vec3 edges = max - min; return edges.x + edges.y + edges.z; }
+		void enlarge(const BoundingBox& other) { min = min.min(other.min); max = max.max(other.max); }
+		const BoundingBox enlarged(const BoundingBox& other) const {
+			return BoundingBox{ min.min(other.min), max.max(other.max) };
+		}
+		bool is_overlapping(const BoundingBox& other) const { return (min.x() < other.max.x() && max.x() > other.min.x()) && (min.y() < other.max.y() && max.y() > other.min.y()) && (min.z() < other.max.z() && max.z() > other.min.z()); }
+		bool is_inside(const BoundingBox& other) const { return min.min(other.min) == other.min && max.max(other.max) == other.max; }
+		bool is_enclosing(const BoundingBox& other) const { return min.min(other.min) == min && max.max(other.max) == max; }
+		float area() const { const Vec3 edges = max - min; return edges.x() * edges.y() * edges.z(); }
+		float margin() const { const Vec3 edges = max - min; return edges.x() + edges.y() + edges.z(); }
 		float overlap(const BoundingBox& other) const {
 			if (!is_overlapping(other)) return 0.f;
-			const BoundingBox overlapped_region = { glm::max(min, other.min), glm::min(max, other.max) };
+			const BoundingBox overlapped_region = { min.max(other.min), max.min(other.max) };
 			return overlapped_region.area();
 		}
 		float distance2_from_center(const BoundingBox& other) const {
 			const Point center = (min + max) / 2.f;
 			const Point other_center = (other.min + other.max) / 2.f;
-			return glm::distance2(center, other_center);
+			return center.distance2(other_center);
 		}
 	};
 
@@ -212,8 +211,8 @@ namespace geoutils {
 			assert(node != nullptr);
 			for (size_t i = 0; i < node->children.size(); ++i) {
 				// Sphere-AABB intersection check, terminate early if there's no overlap.
-				const Vec3 a = glm::max(glm::min(query_point, node->children[i]->bound.max), node->children[i]->bound.min);
-				const float distance = glm::length(a - query_point);
+				const Vec3 a = query_point.min(node->children[i]->bound.max).max(node->children[i]->bound.min);
+				const float distance = (a - query_point).length();
 				if (distance > max_dist) continue;
 				LeafNode* leaf = dynamic_cast<LeafNode*>(node->children[i]);
 				if (leaf) {
